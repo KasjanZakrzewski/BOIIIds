@@ -5,17 +5,25 @@ import math
 # Colors 
 BACKGROUND = "#000000"
 BOIDS = "#A8FFED"
+OBSTACLE = "#FF0000"
 
 # Paramiters
 WIDTH = 1600
 HEIGHT = 800
-BOIDS_SIZE = 10
+BOIDS_SIZE = 5
+OBSTACLE_SIZE = 10
 
 BOUND = 25
 MAX_IN_VIEW = 7
 MAX_SPEED = 2
 PERCEPTION = 50
 SEPARATION = PERCEPTION/2
+
+class Obstacle:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.oval = canvas.create_oval(x - OBSTACLE_SIZE, y - OBSTACLE_SIZE, x + OBSTACLE_SIZE, y + OBSTACLE_SIZE, fill=OBSTACLE)
 
 class Quad:
     def __init__(self, x1, x2, y1, y2, max):
@@ -28,10 +36,9 @@ class Quad:
         self.max = max
 
         self.rectangle = canvas.create_rectangle(x1, y1, x2, y2, outline="#FFFFFF", width=1)
-        # canvas.lower(self.rectangle)
+        canvas.lower(self.rectangle)
 
     def __del__(self):
-        # Rekurencyjne usuwanie poddrzew
         if len(self.chidren) != 0:
             for child in self.chidren:
                 del child
@@ -79,6 +86,30 @@ class Quad:
                 result += child.find_in_square(x1, x2, y1, y2)      
 
         return result
+    
+    def find_obstacles(self, x1, x2, y1, y2):
+        result = [] 
+        if self.intersect(x1, x2, y1, y2):
+            for point in self.points:
+                if (x1 <= point.x < x2) and (y1 <= point.y < y2):
+                    result.append(point)
+
+            for child in self.chidren:
+                result += child.find_obstacles(x1, x2, y1, y2)      
+
+        return result
+    
+    def add_obstacles(self, obstacle):
+        # spr czy mieści sie
+        if (self.x1 <= obstacle.x < self.x2) and (self.y1 <= obstacle.y < self.y2):
+            if len(self.points) == self.max:
+                if len(self.chidren) == 0:
+                    self.split()
+                for child in self.chidren:
+                    child.add_obstacles(obstacle)
+            else:
+                self.points.append(obstacle)
+    
 
 class Vector:
     def __init__(self, x=None, y=None):
@@ -129,18 +160,40 @@ class BOId:
         # self.velocity = Vector(0,0)
         self.velocity.magnitude(MAX_SPEED)
         # self.acceleration = Vector()
-        self.oval = canvas.create_oval(x, y, x + BOIDS_SIZE, y + BOIDS_SIZE, fill=BOIDS)
+        self.oval = canvas.create_oval(x - BOIDS_SIZE, y - BOIDS_SIZE, x + BOIDS_SIZE, y + BOIDS_SIZE, fill=BOIDS)
     
-    def update(self,quad):
+    def update(self,quad, quad_obstacles):
         self.position.add(self.velocity)
-        self.steer2(quad)
+        self.steer2(quad, quad_obstacles)
 
-        # self.steer(quad)
-        
-        # self.velocity.add(self.acceleration)
-        # self.velocity.limit(7)
+        canvas.coords(self.oval, self.position.x - BOIDS_SIZE, self.position.y - BOIDS_SIZE, self.position.x + BOIDS_SIZE, self.position.y + BOIDS_SIZE)
 
-        canvas.coords(self.oval, self.position.x, self.position.y, self.position.x + BOIDS_SIZE, self.position.y + BOIDS_SIZE)
+    def evasion(self, quad_obstacles):
+        obstacles = quad_obstacles.find_obstacles(self.position.x - PERCEPTION, 
+                                    self.position.x + PERCEPTION, 
+                                    self.position.y - PERCEPTION, 
+                                    self.position.y + PERCEPTION)
+        avg = Vector(0,0)
+        temp = Vector(0,0)
+
+        for obstacle in obstacles:
+            temp.cpy(self.position)
+            temp.x -= obstacle.x
+            temp.y -= obstacle.y
+
+            m = math.sqrt( math.pow(temp.x,2) + math.pow(temp.y,2) )
+
+            if m > 0:
+                temp.div(m)
+            
+            avg.add(temp)
+
+        l = len(obstacles)
+        if l > 0:
+            avg.div(l)
+
+        # self.velocity.add(avg)
+        return avg
 
     def boudry(self):
         x = 0
@@ -159,7 +212,7 @@ class BOId:
         
         return Vector(x,y)
 
-    def steer2(self, quad):
+    def steer2(self, quad, quad_obstacles):
         boids = quad.find_in_square(self.position.x - self.perception, 
                                     self.position.x + self.perception, 
                                     self.position.y - self.perception, 
@@ -211,75 +264,17 @@ class BOId:
         avg_sep.magnitude(0.07)
         self.velocity.add(avg_sep)
 
+        avg_eve = self.evasion(quad_obstacles)
+        avg_eve.magnitude(0.08)
+        self.velocity.add(avg_eve)
+
         bound = self.boudry()
         bound.magnitude(0.007)
         self.velocity.add(bound)
 
         self.velocity.limit(MAX_SPEED)
 
-    def steer(self, quad):
-        # boids = quad.find_in_square(self.position.x-100, self.position.x+100, self.position.y-100, self.position.y+100)
-        boids = quad.find_in_square(self.position.x-25, self.position.x+25, self.position.y-25, self.position.y+25)
-
-        # self.acceleration = self.align(boids)
-        # self.acceleration = self.separation(boids)
-        # self.acceleration = self.center(boids)
-        self.acceleration.add(self.center(boids))
-        # self.acceleration.add(self.align(boids))
-        # self.acceleration.add(self.separation(boids))
-        self.acceleration.limit(0.2)
-
-    def align(self, boids):
-        avg = Vector(0,0)
-        for boid in boids:
-            avg.add(boid.velocity)
-
-        avg.sub(self.velocity)
-
-        l = len(boids) - 1
-        if l != 0:
-            avg.div(l)
-            avg.sub(self.velocity)
-            avg.limit(0.3)
-
-        return avg
-    
-    def center(self, boids):
-        avg = Vector(0,0)
-        for boid in boids:
-            avg.add(boid.position)
-
-        avg.sub(self.position)
-
-        l = len(boids) - 1
-        if l != 0:
-            avg.div(l)
-            avg.sub(self.position)
-            avg.sub(self.velocity)
-            avg.limit(0.1)
-        
-        return avg
-
-    def separation(self, boids):
-        temp = Vector(0,0)
-        avg = Vector(0,0)
-        for boid in boids:
-            temp.cpy(self.position)
-            temp.sub(boid.position)
-            m = math.sqrt( math.pow(temp.x,2) + math.pow(temp.y,2) )
-            if m != 0:
-                temp.div(m)
-            avg.add(temp)
-
-        l = len(boids) - 1
-        if l != 0:
-            avg.div(l)
-            avg.sub(self.velocity)
-            avg.limit(0.3)
-
-        return avg
-
-def step(boids, quad, perception): #, found_boids, x, y):
+def step(boids, quad, quad_obstacles, perception): 
     outside(boids)
     if quad != None:
         del quad
@@ -289,7 +284,7 @@ def step(boids, quad, perception): #, found_boids, x, y):
         quad.add_point(boid)
 
     for boid in boids:
-        boid.update(quad)
+        boid.update(quad, quad_obstacles)
 
     if perception != None:
         canvas.delete(perception)
@@ -300,17 +295,7 @@ def step(boids, quad, perception): #, found_boids, x, y):
                             boid.position.y + boid.perception, 
                             outline="#B5A8FF", width=1)
 
-    # <|spr|> 
-    # if found_boids != None:
-    #     for boid in found_boids:
-    #         canvas.itemconfig(boid.oval, fill=BOIDS)
-
-    # found_boids = quad.find_in_square(x, x+400, y, y+400)
-
-    # for boid in found_boids:
-    #     canvas.itemconfig(boid.oval, fill="#B5A8FF")
-
-    root.after(15, step, boids, quad, perception) #, found_boids, x, y)
+    root.after(15, step, boids, quad, quad_obstacles, perception)
 
 def outside(boids):
     for boid in boids:
@@ -326,21 +311,21 @@ def outside(boids):
         if boid.position.y < 0:
             boid.position.y += HEIGHT
 
-
-
 root = tk.Tk() 
 canvas = tk.Canvas(root, bg=BACKGROUND, height=HEIGHT, width=WIDTH) 
 canvas.pack()
 
 boids = []
 for i in range(200):
-    # boids.append(BOId(WIDTH/2, HEIGHT/2))
     boids.append(BOId(Randy.randint(0,WIDTH-1), Randy.randint(0,HEIGHT-1)))
 
-# <|spr|> 
-# x = Randy.randint(0,WIDTH-400)
-# y = Randy.randint(0,HEIGHT-400)
-# canvas.create_rectangle(x, y, x + 400, y + 400, outline="#B5A8FF", width=1)
+obstacles = []
+for i in range(50):
+    obstacles.append(Obstacle(Randy.randint(0,WIDTH-1), Randy.randint(0,HEIGHT-1)))
 
-step(boids, None, None) #, None, x, y)
+quad_obstacles = Quad(0, WIDTH, 0, HEIGHT, 4)
+for obstacle in obstacles:
+    quad_obstacles.add_obstacles(obstacle)
+
+step(boids, None, quad_obstacles, None)
 root.mainloop()
