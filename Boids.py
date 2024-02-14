@@ -19,14 +19,18 @@ MAX_SPEED = 2
 PERCEPTION = 50
 SEPARATION = PERCEPTION/2
 
+show = True
+show_percertion = True
+
 class Obstacle:
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.oval = canvas.create_oval(x - OBSTACLE_SIZE, y - OBSTACLE_SIZE, x + OBSTACLE_SIZE, y + OBSTACLE_SIZE, fill=OBSTACLE)
 
-class Quad:
+class Quad_Points:
     def __init__(self, x1, x2, y1, y2, max):
+        self.rectangle = None
         self.chidren = []
         self.points = []
         self.x1 = x1
@@ -34,28 +38,29 @@ class Quad:
         self.y1 = y1
         self.y2 = y2
         self.max = max
-
-        self.rectangle = canvas.create_rectangle(x1, y1, x2, y2, outline="#FFFFFF", width=1)
-        canvas.lower(self.rectangle)
+        global show
+        if show:
+            self.rectangle = canvas.create_rectangle(x1, y1, x2, y2, outline="#FFFFFF", width=1)
+            canvas.lower(self.rectangle)
 
     def __del__(self):
         if len(self.chidren) != 0:
             for child in self.chidren:
                 del child
-        canvas.delete(self.rectangle)
-
+        if self.rectangle != None:
+            canvas.delete(self.rectangle)
 
     def split(self):
-        quad = Quad(self.x1, (self.x1+self.x2)/2, self.y1, (self.y1+self.y2)/2, self.max)
+        quad = Quad_Points(self.x1, (self.x1+self.x2)/2, self.y1, (self.y1+self.y2)/2, self.max)
         self.chidren.append(quad)
 
-        quad = Quad((self.x1+self.x2)/2, self.x2, self.y1, (self.y1+self.y2)/2, self.max)
+        quad = Quad_Points((self.x1+self.x2)/2, self.x2, self.y1, (self.y1+self.y2)/2, self.max)
         self.chidren.append(quad)
 
-        quad = Quad(self.x1, (self.x1+self.x2)/2, (self.y1+self.y2)/2, self.y2, self.max)
+        quad = Quad_Points(self.x1, (self.x1+self.x2)/2, (self.y1+self.y2)/2, self.y2, self.max)
         self.chidren.append(quad)
 
-        quad = Quad((self.x1+self.x2)/2, self.x2, (self.y1+self.y2)/2, self.y2, self.max)
+        quad = Quad_Points((self.x1+self.x2)/2, self.x2, (self.y1+self.y2)/2, self.y2, self.max)
         self.chidren.append(quad)
 
     def add_point(self, point):
@@ -86,6 +91,42 @@ class Quad:
                 result += child.find_in_square(x1, x2, y1, y2)      
 
         return result
+    
+class Quad_Obstacles:
+    def __init__(self, x1, x2, y1, y2, max):
+        self.rectangle = None
+        self.chidren = []
+        self.points = []
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+        self.max = max
+
+    def __del__(self):
+        if len(self.chidren) != 0:
+            for child in self.chidren:
+                del child
+
+
+    def split(self):
+        quad = Quad_Obstacles(self.x1, (self.x1+self.x2)/2, self.y1, (self.y1+self.y2)/2, self.max)
+        self.chidren.append(quad)
+
+        quad = Quad_Obstacles((self.x1+self.x2)/2, self.x2, self.y1, (self.y1+self.y2)/2, self.max)
+        self.chidren.append(quad)
+
+        quad = Quad_Obstacles(self.x1, (self.x1+self.x2)/2, (self.y1+self.y2)/2, self.y2, self.max)
+        self.chidren.append(quad)
+
+        quad = Quad_Obstacles((self.x1+self.x2)/2, self.x2, (self.y1+self.y2)/2, self.y2, self.max)
+        self.chidren.append(quad)
+    
+    def intersect(self, x1, x2, y1, y2):
+        return not (self.x2 < x1 or 
+                    self.x1 > x2 or 
+                    self.y1 > y2 or 
+                    self.y2 < y1)
     
     def find_obstacles(self, x1, x2, y1, y2):
         result = [] 
@@ -278,7 +319,7 @@ def step(boids, quad, quad_obstacles, perception):
     outside(boids)
     if quad != None:
         del quad
-    quad = Quad(0, WIDTH, 0, HEIGHT, 4)
+    quad = Quad_Points(0, WIDTH, 0, HEIGHT, 4)
 
     for boid in boids:
         quad.add_point(boid)
@@ -289,11 +330,12 @@ def step(boids, quad, quad_obstacles, perception):
     if perception != None:
         canvas.delete(perception)
 
-    perception = canvas.create_rectangle(boid.position.x - boid.perception, 
-                            boid.position.y - boid.perception, 
-                            boid.position.x + boid.perception, 
-                            boid.position.y + boid.perception, 
-                            outline="#B5A8FF", width=1)
+    if show_percertion:
+        perception = canvas.create_rectangle(boid.position.x - boid.perception, 
+                                boid.position.y - boid.perception, 
+                                boid.position.x + boid.perception, 
+                                boid.position.y + boid.perception, 
+                                outline="#B5A8FF", width=1)
 
     root.after(15, step, boids, quad, quad_obstacles, perception)
 
@@ -311,7 +353,37 @@ def outside(boids):
         if boid.position.y < 0:
             boid.position.y += HEIGHT
 
+def show_off():
+    global show
+    show = False
+
+def show_on():
+    global show
+    show = True
+
+def show_p_off():
+    global show_percertion
+    show_percertion = False
+
+def show_p_on():
+    global show_percertion
+    show_percertion = True
+
 root = tk.Tk() 
+
+menu = tk.Menu(root)
+quad_menu = tk.Menu(menu, tearoff=0)
+quad_menu.add_command(label="show off", command=show_off)
+quad_menu.add_command(label="show on", command=show_on)
+
+percertion_menu = tk.Menu(menu, tearoff=0)
+percertion_menu.add_command(label="show off", command=show_p_off)
+percertion_menu.add_command(label="show on", command=show_p_on)
+
+menu.add_cascade(menu=quad_menu, label="Quad Tree")
+menu.add_cascade(menu=percertion_menu, label="Percertion")
+root.config(menu=menu)
+
 canvas = tk.Canvas(root, bg=BACKGROUND, height=HEIGHT, width=WIDTH) 
 canvas.pack()
 
@@ -323,7 +395,7 @@ obstacles = []
 for i in range(50):
     obstacles.append(Obstacle(Randy.randint(0,WIDTH-1), Randy.randint(0,HEIGHT-1)))
 
-quad_obstacles = Quad(0, WIDTH, 0, HEIGHT, 4)
+quad_obstacles = Quad_Obstacles(0, WIDTH, 0, HEIGHT, 4)
 for obstacle in obstacles:
     quad_obstacles.add_obstacles(obstacle)
 
