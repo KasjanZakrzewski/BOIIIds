@@ -10,14 +10,9 @@ class Quad_Points:
         self.y1 = y1
         self.y2 = y2
         self.max = max
-        # global show
         if show:
             self.rectangle = canvas.create_rectangle(x1, y1, x2, y2, outline="#FFFFFF", width=1)
             canvas.lower(self.rectangle)
-            # print(show)
-        # else:
-        #     print(show)
-        #     None
 
     def __del__(self):
         if len(self.chidren) != 0:
@@ -40,7 +35,6 @@ class Quad_Points:
         self.chidren.append(quad)
 
     def add_point(self, point, show):
-        # spr czy mieści sie
         if (self.x1 <= point.position.x < self.x2) and (self.y1 <= point.position.y < self.y2):
             if len(self.points) == self.max:
                 if len(self.chidren) == 0:

@@ -1,5 +1,3 @@
-
-
 class Quad_Obstacles:
     def __init__(self, x1, x2, y1, y2, max):
         self.rectangle = None
@@ -48,7 +46,6 @@ class Quad_Obstacles:
         return result
     
     def add_obstacles(self, obstacle):
-        # spr czy mieści sie
         if (self.x1 <= obstacle.x < self.x2) and (self.y1 <= obstacle.y < self.y2):
             if len(self.obstacles) == self.max:
                 if len(self.chidren) == 0:
