@@ -17,11 +17,5 @@ MAX_SPEED = 2
 PERCEPTION = 50
 SEPARATION = PERCEPTION/2
 
-global show
-show = True
-
-global show_percertion
-show_percertion = True
-
 root = tk.Tk() 
 canvas = tk.Canvas(root, bg=BACKGROUND, height=HEIGHT, width=WIDTH)

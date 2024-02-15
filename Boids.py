@@ -7,14 +7,17 @@ from Quad_Points import Quad_Points
 from Quad_Obstacles import Quad_Obstacles
 from Boid import Boid
 
+show = True
+show_percertion = True
+
 def step(boids, quad, quad_obstacles, perception): 
     outside(boids)
     if quad != None:
         del quad
-    quad = Quad_Points(0, WIDTH, 0, HEIGHT, 4)
+    quad = Quad_Points(0, WIDTH, 0, HEIGHT, 4, show)
 
     for boid in boids:
-        quad.add_point(boid)
+        quad.add_point(boid, show)
 
     for boid in boids:
         boid.update(quad, quad_obstacles)
